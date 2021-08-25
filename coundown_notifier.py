@@ -1,11 +1,10 @@
-#import appdaemon.plugins.hass.hassapi as hass
+import appdaemon.plugins.hass.hassapi as hass
 
 import re
 
 import requests
 
 # Use sys variable or secrests.yaml if you like
-from config import username, password, apikey
 
 URL_LOGIN = r'https://login.countdown.co.nz/accounts.login'
 URL_PICKUP = r'https://shop.countdown.co.nz/api/v1/fulfilment/time-slots-summary'
@@ -21,25 +20,21 @@ PARAMS = {
 }
 
 
-#class Countdown_notifier(hass.Hass):
-class Countdown_notifier():
+class Countdown_notifier(hass.Hass):
 
     def initialize(self):
-
-        pass
-        #try:
-        #    self.run_every(
-        #        self.stream,
-        #        'now',
-        #        60
-        #    )
-   
-        #except Exception as e:
-
-        #    self.send_email_to(
-        #        message=e,
-        #        title=f'Countdown_notifier Error'
-        #    )
+        self.log(f'{__name__} is now live.')
+        try:
+            self.run_every(
+                self.stream,
+                'now',
+                30
+            )
+        except Exception as e:
+            self.send_email_to(
+                message=e,
+                title=f'Countdown_notifier Error'
+            )
 
     @property
     def response(self, **kwargs):
@@ -55,27 +50,29 @@ class Countdown_notifier():
                 URL_PICKUP,
                 headers=HEADERS,
             )
-
+            
         return r
 
-    def stream(self):
+    def send_email_to(self, message, title=''):
+        
+        self.call_service(
+            'notify/send_email_to_rick_notifier',
+            message=message,
+            title=title,
+        )
+        
+    def stream(self, kwargs):
         
         slots = self.response.json()['slots']
         if slots:
-            for i in slots:
-                yield (i['start'], i['end'], i['isExpress'])
+            
+            x =  [
+                f'start: {i["start"]}, end: {i["end"]}, express: {i["isExpress"]}'
+                for i in slots
+            ]
+            x = '\n'.join(x)
 
-#            self.send_email_to(
-#                message='TBD',
-#                title=f'Countdown Slots Available'
-#            )
-
-if __name__ == '__main__':
-    
-    try:
-        x = Countdown_notifier()
-        for i in x.stream():
-            print(i)
-
-    except Exception as e:
-        print(e)
+            self.send_email_to(
+                message=x,
+                title=f'Countdown Slots Available'
+            )
